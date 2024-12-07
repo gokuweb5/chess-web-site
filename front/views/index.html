@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess Online</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #4e54c8, #8f94fb);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            color: #2d3748;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+        }
+
+        .create-game-btn {
+            background: #4299e1;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 30px;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .create-game-btn:hover {
+            background: #3182ce;
+            transform: translateY(-2px);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            color: #a0aec0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+            margin: 0 10px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4299e1;
+        }
+
+        .how-to-play {
+            margin-top: 30px;
+            text-align: left;
+            color: #4a5568;
+        }
+
+        .how-to-play h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .how-to-play ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .how-to-play li {
+            margin-bottom: 5px;
+        }
+
+        .error {
+            color: #e53e3e;
+            background: #fff5f5;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .game-code-display {
+            display: none;
+            background: #f7fafc;
+            border: 2px solid #4299e1;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .game-code {
+            font-size: 2rem;
+            font-family: monospace;
+            color: #2d3748;
+            margin: 10px 0;
+            letter-spacing: 2px;
+        }
+
+        .copy-button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .copy-button:hover {
+            background: #3182ce;
+        }
+
+        .code-label {
+            color: #718096;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            ♟ El Salvador Chess Club
+        </div>
+        <p class="subtitle">Juega Ajedrez con amigos en linea</p>
+
+        <div class="input-group">
+            <input type="text" id="username" placeholder="Introduce tu usuario" required>
+        </div>
+
+        <div id="gameCodeDisplay" class="game-code-display">
+            <div class="code-label">Comparte este codigo con tu amigo:</div>
+            <div class="game-code" id="generatedGameCode"></div>
+            <button class="copy-button" onclick="copyGameCode()">Copiar codigo</button>
+        </div>
+
+        <button class="create-game-btn" onclick="createGame()">Crear nuevo juego</button>
+
+        <div class="divider">o Unete a un juego existente</div>
+
+        <div class="input-group">
+            <input type="text" id="gameCode" placeholder="Introduce el codigo de juego">
+        </div>
+
+        <button class="create-game-btn" onclick="joinGame()">Unirse al juego</button>
+
+        <div class="how-to-play">
+            <h3>Como jugar:</h3>
+            <ol>
+                <li>Crea un nuevo juego o introduce el codigo de uno ya creado</li>
+                <li>Comparte el codigo de tu juego con un amigo</li>
+                <li>Comienza a jugar cuando tu amigo se una y de clic en "Listo"</li>
+            </ol>
+        </div>
+
+        <div class="error" id="error"></div>
+    </div>
+
+    <script>
+        function showError(message) {
+            const error = document.getElementById('error');
+            error.textContent = message;
+            error.style.display = 'block';
+        }
+
+        function generateGameCode() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+
+        function copyGameCode() {
+            const gameCode = document.getElementById('generatedGameCode').textContent;
+            navigator.clipboard.writeText(gameCode).then(() => {
+                const copyButton = document.querySelector('.copy-button');
+                copyButton.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyButton.textContent = 'Copy Code';
+                }, 2000);
+            });
+        }
+
+        function createGame() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                showError('Please enter a username');
+                return;
+            }
+
+            const gameCode = generateGameCode();
+            document.getElementById('gameCodeDisplay').style.display = 'block';
+            document.getElementById('generatedGameCode').textContent = gameCode;
+
+            setTimeout(() => {
+                window.location.href = `/create?timeControl=10&username=${encodeURIComponent(username)}&gameCode=${gameCode}`;
+            }, 100);
+        }
+
+        function joinGame() {
+            const username = document.getElementById('username').value.trim();
+            const gameCode = document.getElementById('gameCode').value.trim();
+            
+            if (!username) {
+                showError('Por favor introduzca su usuario');
+                return;
+            }
+            if (!gameCode) {
+                showError('Por favor introduzca el codigo de juego');
+                return;
+            }
+
+            window.location.href = `/black?code=${gameCode}&username=${encodeURIComponent(username)}`;
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        if (error) {
+            showError(error === 'noUsername' ? 'Por favor introduzca su usuario' : 
+                     error === 'noCode' ? 'Por favor introduzca un codigo de juego' :
+                     error === 'invalidCode' ? 'Codigo de juego no valido' :
+                     error === 'codeInUse' ? 'Este codigo de juego ya esta en uso' : error);
+        }
+    </script>
+</body>
+</html>
