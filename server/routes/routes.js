@@ -1,70 +1,127 @@
+const express = require('express');
+const router = express.Router();
+
+// Almacenamiento en memoria de los juegos activos
 const games = {};
 
-module.exports = app => {
-    app.get('/', (req, res) => {
-        res.render('index');
+// Limpiar juegos viejos periódicamente (más de 24 horas)
+setInterval(() => {
+    const now = Date.now();
+    Object.keys(games).forEach(gameCode => {
+        if (now - games[gameCode].created > 24 * 60 * 60 * 1000) {
+            delete games[gameCode];
+        }
     });
+}, 60 * 60 * 1000); // Cada hora
 
-    app.get('/create', (req, res) => {
-        const timeControl = req.query.timeControl || 10;
-        const username = req.query.username;
-        const gameCode = req.query.gameCode;
-        
-        if (!username) {
-            return res.redirect('/?error=noUsername');
-        }
-
-        if (!gameCode) {
-            return res.redirect('/?error=noCode');
-        }
-
-        // Verificar si el código ya está en uso
-        if (games[gameCode]) {
-            return res.redirect('/?error=codeInUse');
-        }
-        
-        // Crear nuevo juego con el código proporcionado
-        games[gameCode] = {
-            timeControl: parseInt(timeControl),
-            created: true,
-            whitePlayer: username
-        };
-        
-        res.render('game', {
-            color: 'white',
-            gameCode: gameCode,
-            timeControl: timeControl,
-            username: username
+// Crear una nueva partida
+router.post('/create', (req, res) => {
+    const { gameCode, timeControl } = req.body;
+    
+    if (!gameCode) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Código de juego requerido' 
         });
-    });
+    }
 
-    app.get('/black', (req, res) => {
-        const gameCode = req.query.code;
-        const username = req.query.username;
-        
-        if (!username) {
-            return res.redirect('/?error=noUsername');
-        }
-        
-        if (!gameCode) {
-            return res.redirect('/?error=noCode');
-        }
-
-        if (!games[gameCode] || !games[gameCode].created) {
-            return res.redirect('/?error=invalidCode');
-        }
-
-        // Store black player's username
-        games[gameCode].blackPlayer = username;
-
-        res.render('game', {
-            color: 'black',
-            gameCode: gameCode,
-            timeControl: games[gameCode].timeControl,
-            username: username
+    // Verificar si el código ya está en uso
+    if (games[gameCode]) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Este código ya está en uso' 
         });
+    }
+    
+    // Crear nuevo juego
+    games[gameCode] = {
+        timeControl: parseInt(timeControl) || 10,
+        whitePlayer: req.session.userId,
+        created: Date.now(),
+        status: 'waiting' // waiting, ready, playing, finished
+    };
+    
+    res.json({ 
+        success: true,
+        message: 'Partida creada exitosamente',
+        gameCode 
     });
+});
 
-    // Export games object to be used in other modules
-    global.games = games;
-};
+// Unirse a una partida existente
+router.post('/join', (req, res) => {
+    const { gameCode } = req.body;
+    
+    if (!gameCode) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Código de juego requerido' 
+        });
+    }
+    
+    const game = games[gameCode];
+    
+    if (!game) {
+        return res.status(404).json({ 
+            success: false, 
+            message: 'Partida no encontrada' 
+        });
+    }
+
+    // Verificar si el jugador ya está en la partida
+    if (game.whitePlayer === req.session.userId) {
+        return res.json({ 
+            success: true,
+            message: 'Ya estás en esta partida como blancas' 
+        });
+    }
+    
+    if (game.blackPlayer === req.session.userId) {
+        return res.json({ 
+            success: true,
+            message: 'Ya estás en esta partida como negras' 
+        });
+    }
+    
+    if (game.blackPlayer) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'La partida está llena' 
+        });
+    }
+    
+    // Asignar jugador negro
+    game.blackPlayer = req.session.userId;
+    game.status = 'ready';
+    
+    res.json({ 
+        success: true,
+        message: 'Te has unido a la partida exitosamente' 
+    });
+});
+
+// Vista del tablero
+router.get('/:gameCode', (req, res) => {
+    const { gameCode } = req.params;
+    const game = games[gameCode];
+    
+    if (!game) {
+        return res.redirect('/?error=gameNotFound');
+    }
+    
+    const isWhitePlayer = game.whitePlayer === req.session.userId;
+    const isBlackPlayer = game.blackPlayer === req.session.userId;
+    
+    if (!isWhitePlayer && !isBlackPlayer) {
+        return res.redirect('/?error=notPlayer');
+    }
+    
+    res.render('game', {
+        color: isWhitePlayer ? 'white' : 'black',
+        gameCode,
+        timeControl: game.timeControl,
+        username: res.locals.user.username
+    });
+});
+
+module.exports = router;

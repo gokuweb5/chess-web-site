@@ -50,7 +50,7 @@
             font-size: 1.1rem;
             cursor: pointer;
             width: 100%;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
             transition: transform 0.2s, background 0.2s;
         }
 
@@ -87,6 +87,7 @@
             font-size: 1rem;
             transition: border-color 0.2s;
             box-sizing: border-box;
+            margin-bottom: 10px;
         }
 
         input:focus {
@@ -94,24 +95,29 @@
             border-color: #4299e1;
         }
 
-        .how-to-play {
-            margin-top: 30px;
-            text-align: left;
-            color: #4a5568;
+        .user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 10px;
         }
 
-        .how-to-play h3 {
-            color: #2d3748;
-            margin-bottom: 10px;
+        .logout-btn {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
         }
 
-        .how-to-play ol {
-            margin: 0;
-            padding-left: 20px;
-        }
-
-        .how-to-play li {
-            margin-bottom: 5px;
+        .logout-btn:hover {
+            background: #c53030;
         }
 
         .error {
@@ -119,7 +125,7 @@
             background: #fff5f5;
             padding: 10px;
             border-radius: 8px;
-            margin-top: 10px;
+            margin: 10px 0;
             display: none;
         }
 
@@ -155,12 +161,6 @@
         .copy-button:hover {
             background: #3182ce;
         }
-
-        .code-label {
-            color: #718096;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
     </style>
 </head>
 <body>
@@ -168,101 +168,166 @@
         <div class="logo">
             ♟ El Salvador Chess Club
         </div>
-        <p class="subtitle">Juega Ajedrez con amigos en linea</p>
+        
+        <div class="user-info">
+            <span>Bienvenido, <span id="username"></span></span>
+            <button onclick="logout()" class="logout-btn">Cerrar Sesión</button>
+        </div>
+
+        <p class="subtitle">Juega Ajedrez con amigos en línea</p>
+        
+        <div id="error" class="error"></div>
+
+        <button onclick="createGame()" class="create-game-btn">Crear Partida</button>
+
+        <div class="divider">o</div>
 
         <div class="input-group">
-            <input type="text" id="username" placeholder="Introduce tu usuario" required>
+            <input type="text" id="gameCodeInput" placeholder="Introduce el código de la partida" required>
+            <button onclick="joinGame()" class="create-game-btn">Unirse a Partida</button>
         </div>
 
         <div id="gameCodeDisplay" class="game-code-display">
-            <div class="code-label">Comparte este codigo con tu amigo:</div>
-            <div class="game-code" id="generatedGameCode"></div>
-            <button class="copy-button" onclick="copyGameCode()">Copiar codigo</button>
+            <div>Comparte este código con tu amigo:</div>
+            <div id="gameCode" class="game-code"></div>
+            <button onclick="copyGameCode()" class="copy-button">Copiar Código</button>
         </div>
-
-        <button class="create-game-btn" onclick="createGame()">Crear nuevo juego</button>
-
-        <div class="divider">o Unete a un juego existente</div>
-
-        <div class="input-group">
-            <input type="text" id="gameCode" placeholder="Introduce el codigo de juego">
-        </div>
-
-        <button class="create-game-btn" onclick="joinGame()">Unirse al juego</button>
-
-        <div class="how-to-play">
-            <h3>Como jugar:</h3>
-            <ol>
-                <li>Crea un nuevo juego o introduce el codigo de uno ya creado</li>
-                <li>Comparte el codigo de tu juego con un amigo</li>
-                <li>Comienza a jugar cuando tu amigo se una y de clic en "Listo"</li>
-            </ol>
-        </div>
-
-        <div class="error" id="error"></div>
     </div>
 
     <script>
+        // Obtener información del usuario al cargar la página
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/auth/me');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('username').textContent = data.user.username;
+                }
+            } catch (err) {
+                console.error('Error al obtener información del usuario:', err);
+            }
+        });
+
+        async function logout() {
+            try {
+                const response = await fetch('/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.location.href = '/login';
+                } else {
+                    showError('Error al cerrar sesión');
+                }
+            } catch (err) {
+                showError('Error al cerrar sesión');
+            }
+        }
+
         function showError(message) {
-            const error = document.getElementById('error');
-            error.textContent = message;
-            error.style.display = 'block';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
         }
 
         function generateGameCode() {
             return Math.random().toString(36).substring(2, 8).toUpperCase();
         }
 
-        function copyGameCode() {
-            const gameCode = document.getElementById('generatedGameCode').textContent;
-            navigator.clipboard.writeText(gameCode).then(() => {
-                const copyButton = document.querySelector('.copy-button');
-                copyButton.textContent = 'Copied!';
-                setTimeout(() => {
-                    copyButton.textContent = 'Copy Code';
-                }, 2000);
-            });
-        }
-
-        function createGame() {
-            const username = document.getElementById('username').value.trim();
-            if (!username) {
-                showError('Please enter a username');
-                return;
-            }
-
+        async function createGame() {
             const gameCode = generateGameCode();
-            document.getElementById('gameCodeDisplay').style.display = 'block';
-            document.getElementById('generatedGameCode').textContent = gameCode;
+            try {
+                const response = await fetch('/game/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        gameCode: gameCode,
+                        timeControl: 10
+                    })
+                });
 
-            setTimeout(() => {
-                window.location.href = `/create?timeControl=10&username=${encodeURIComponent(username)}&gameCode=${gameCode}`;
-            }, 100);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Redireccionar directamente a la página del juego
+                    window.location.href = `/game/${gameCode}`;
+                } else {
+                    showError(data.message || 'Error al crear la partida');
+                }
+            } catch (err) {
+                showError('Error al crear la partida');
+            }
         }
 
-        function joinGame() {
-            const username = document.getElementById('username').value.trim();
-            const gameCode = document.getElementById('gameCode').value.trim();
-            
-            if (!username) {
-                showError('Por favor introduzca su usuario');
-                return;
-            }
+        async function joinGame() {
+            const gameCode = document.getElementById('gameCodeInput').value.trim().toUpperCase();
             if (!gameCode) {
-                showError('Por favor introduzca el codigo de juego');
+                showError('Por favor introduce un código de partida');
                 return;
             }
 
-            window.location.href = `/black?code=${gameCode}&username=${encodeURIComponent(username)}`;
+            try {
+                const response = await fetch('/game/join', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        gameCode: gameCode
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.location.href = `/game/${gameCode}`;
+                } else {
+                    showError(data.message || 'Error al unirse a la partida');
+                }
+            } catch (err) {
+                showError('Error al unirse a la partida');
+            }
         }
 
+        function copyGameCode() {
+            const gameCode = document.getElementById('gameCode').textContent;
+            navigator.clipboard.writeText(gameCode)
+                .then(() => {
+                    const copyButton = document.querySelector('.copy-button');
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = '¡Copiado!';
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Error al copiar:', err);
+                    showError('Error al copiar el código');
+                });
+        }
+
+        // Verificar errores en la URL
         const urlParams = new URLSearchParams(window.location.search);
         const error = urlParams.get('error');
         if (error) {
-            showError(error === 'noUsername' ? 'Por favor introduzca su usuario' : 
-                     error === 'noCode' ? 'Por favor introduzca un codigo de juego' :
-                     error === 'invalidCode' ? 'Codigo de juego no valido' :
-                     error === 'codeInUse' ? 'Este codigo de juego ya esta en uso' : error);
+            showError(
+                error === 'noCode' ? 'Por favor introduce un código de partida' :
+                error === 'invalidCode' ? 'Código de partida no válido' :
+                error === 'gameNotFound' ? 'Partida no encontrada' :
+                error === 'gameFull' ? 'La partida está llena' :
+                'Error al unirse a la partida'
+            );
         }
     </script>
 </body>
