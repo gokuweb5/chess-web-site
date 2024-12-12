@@ -27,12 +27,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(session({
     store: new pgSession({
         pool,
-        tableName: 'session'
+        tableName: 'session',
+        // Limpiar sesiones expiradas
+        pruneSessionInterval: 60 // Cada minuto
     }),
     secret: process.env.SESSION_SECRET || 'your_session_secret',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 días
+    cookie: {
+        // La cookie se eliminará al cerrar el navegador
+        expires: false,
+        // Pero mantenemos una ventana de reconexión de 3 minutos
+        rolling: true,
+        maxAge: 3 * 60 * 1000 // 3 minutos
+    }
 }));
 
 // Servir archivos estáticos
